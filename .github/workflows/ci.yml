@@ -1,0 +1,207 @@
+name: etiss-xvalid CI - build and test
+
+on:
+  push:
+    paths-ignore:
+    - doc/
+    - README*
+    branches:
+      - master
+    tags:
+      - v*
+  pull_request:
+    paths-ignore:
+    - doc/
+    - README*
+    branches:
+      - master
+  workflow_dispatch: {}
+
+jobs:
+  requirements:
+    strategy:
+      matrix:
+        os:
+          - {name: "ubuntu", version: "latest"}
+          - {name: "ubuntu", version: "22.04"}
+
+    runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
+    container: ${{ matrix.os.name }}:${{ matrix.os.version }}
+    name: requirements_${{ matrix.os.name }}-${{ matrix.os.version }}
+
+    steps:
+    - name: Install git on container
+      run: |
+        apt update
+        apt install -y git
+
+    - name: Checkout ETISS
+      uses: actions/checkout@v4
+      with:
+        repository: tum-ei-eda/etiss
+        submodules: recursive
+        path: etiss
+
+    - name: Install ETISS build dependencies
+      run: |
+        apt update
+        apt install -y build-essential ccache cmake ninja-build libboost-system-dev libboost-filesystem-dev libboost-program-options-dev
+
+    - name: Cache ccache
+      uses: actions/cache@v4
+      with:
+        path: .ccache
+        key: etiss-ccache-${{ matrix.os.name }}-${{ matrix.os.version }}-${{ github.run_id }}
+        restore-keys: |
+          etiss-ccache-${{ matrix.os.name }}-${{ matrix.os.version }}-
+
+    - name: Configure ETISS
+      run: |
+        cmake -S etiss -B etiss-build -G Ninja \
+          -D CMAKE_BUILD_TYPE=Release \
+          -D CMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/etiss-install" \
+          -D CMAKE_C_COMPILER_LAUNCHER=ccache \
+          -D CMAKE_CXX_COMPILER_LAUNCHER=ccache
+      env:
+        CCACHE_DIR: ${{ github.workspace }}/.ccache
+
+    - name: Build and install ETISS
+      run: cmake --build etiss-build --target install --parallel
+      env:
+        CCACHE_DIR: ${{ github.workspace }}/.ccache
+
+    - name: Package ETISS install
+      run: tar -czf etiss-install.tar.gz -C etiss-install .
+
+    - name: Upload ETISS install
+      uses: actions/upload-artifact@v4
+      with:
+        name: etiss-${{ matrix.os.name }}-${{ matrix.os.version }}
+        path: etiss-install.tar.gz
+        if-no-files-found: error
+
+  build:
+    needs: requirements
+    strategy:
+      matrix:
+        os:
+          - {name: "ubuntu", version: "latest"}
+          - {name: "ubuntu", version: "22.04"}
+
+    runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
+    container: ${{ matrix.os.name }}:${{ matrix.os.version }}
+    name: build_${{ matrix.os.name }}-${{ matrix.os.version }}
+
+    steps:
+    - name: Install git on container
+      run: |
+        apt update
+        apt install -y git
+
+    - name: Checkout etiss-xvalid
+      uses: actions/checkout@v4
+      with:
+        path: etiss-xvalid
+
+    - name: Download ETISS install
+      uses: actions/download-artifact@v4
+      with:
+        name: etiss-${{ matrix.os.name }}-${{ matrix.os.version }}
+        path: etiss-artifact
+
+    - name: Extract ETISS install
+      run: |
+        mkdir -p etiss-install
+        tar -xzf etiss-artifact/etiss-install.tar.gz -C etiss-install
+
+    - name: Install build dependencies
+      run: |
+        apt update
+        apt install -y build-essential cmake ninja-build libboost-system-dev libboost-filesystem-dev libboost-program-options-dev
+
+    - name: Configure etiss-xvalid
+      run: |
+        cmake -S etiss-xvalid -B xvalid-build -G Ninja \
+          -D CMAKE_BUILD_TYPE=Release \
+          -D ETISS_DIR="${GITHUB_WORKSPACE}/etiss-install/lib/CMake/ETISS" \
+          -D CMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/xvalid-install"
+
+    - name: Build etiss-xvalid
+      run: cmake --build xvalid-build --parallel
+
+    - name: Install etiss-xvalid
+      run: cmake --build xvalid-build --target install
+
+    - name: Package etiss-xvalid install
+      run: tar -czf xvalid-install.tar.gz -C xvalid-install .
+
+    - name: Upload etiss-xvalid install
+      uses: actions/upload-artifact@v4
+      with:
+        name: xvalid-${{ matrix.os.name }}-${{ matrix.os.version }}
+        path: xvalid-install.tar.gz
+        if-no-files-found: error
+
+  test:
+    needs: build
+    strategy:
+      matrix:
+        os:
+          - {name: "ubuntu", version: "latest"}
+          - {name: "ubuntu", version: "22.04"}
+
+    runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
+    container: ${{ matrix.os.name }}:${{ matrix.os.version }}
+    name: test_${{ matrix.os.name }}-${{ matrix.os.version }}
+
+    steps:
+    - name: Install git on container
+      run: |
+        apt update
+        apt install -y git
+
+    - name: Checkout etiss-xvalid
+      uses: actions/checkout@v4
+      with:
+        path: etiss-xvalid
+
+    - name: Download ETISS install
+      uses: actions/download-artifact@v4
+      with:
+        name: etiss-${{ matrix.os.name }}-${{ matrix.os.version }}
+        path: etiss-artifact
+
+    - name: Extract ETISS install
+      run: |
+        mkdir -p etiss-install
+        tar -xzf etiss-artifact/etiss-install.tar.gz -C etiss-install
+
+    - name: Download etiss-xvalid install
+      uses: actions/download-artifact@v4
+      with:
+        name: xvalid-${{ matrix.os.name }}-${{ matrix.os.version }}
+        path: xvalid-artifact
+
+    - name: Extract etiss-xvalid install
+      run: |
+        mkdir -p xvalid-install
+        tar -xzf xvalid-artifact/xvalid-install.tar.gz -C xvalid-install
+
+    - name: Install test dependencies
+      run: |
+        apt update
+        apt install -y build-essential python3 python3-pip python3-venv
+
+    - name: Install Python package
+      working-directory: etiss-xvalid
+      run: |
+        python3 -m venv .venv
+        . .venv/bin/activate
+        python -m pip install --upgrade pip
+        python -m pip install -e ".[test]"
+
+    - name: Run tests
+      working-directory: etiss-xvalid
+      run: |
+        . .venv/bin/activate
+        pytest tests/
