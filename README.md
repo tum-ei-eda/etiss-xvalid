@@ -1,6 +1,24 @@
 # ETISS XValid
 
 Out-of-tree ETISS plugins and Python tooling for the XValid validation flow.
+Originally released under working title ETISS-GTS.
+
+<details>
+<summary>ETISS-GTS Thesis</summary>
+<p>
+
+```
+@mastersthesis{holappa2025etissgts,
+  author = {Holappa, Heidi},
+  title = {A Co-Verification Infrastructure for ETISS: Verifying Extended Instruction Sets},
+  school = {University of Helsinki},
+  year = {2025},
+  url = {http://hdl.handle.net/10138/602402}
+}
+```
+
+</p>
+</details>
 
 ## Build the plugins
 
@@ -23,3 +41,13 @@ The library provides these ETISS plugin names:
 
 `GTS` expects the validation pipeline to provide `pcs.tmp` in the ETISS working directory and
 writes binary trace data to `trace.bin`.
+
+## Python validation pipeline
+
+The validation pipeline is available as the root-level `py_validator_pipeline` package:
+
+```sh
+python3 -m py_validator_pipeline --help
+```
+
+Additional pipeline documentation lives in `docs/py_validator_pipeline/README.md`.
