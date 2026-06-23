@@ -44,10 +44,10 @@ writes binary trace data to `trace.bin`.
 
 ## Python validation pipeline
 
-The validation pipeline is available as the root-level `py_validator_pipeline` package:
+The validation pipeline is available as the root-level `py_etiss_xvalid` package:
 
 ```sh
-python3 -m py_validator_pipeline --help
+python3 -m py_etiss_xvalid --help
 ```
 
-Additional pipeline documentation lives in `docs/py_validator_pipeline/README.md`.
+Additional pipeline documentation lives in `docs/py_etiss_xvalid/README.md`.
