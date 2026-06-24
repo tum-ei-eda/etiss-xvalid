@@ -6,7 +6,7 @@ on:
     - doc/
     - README*
     branches:
-      - master
+      - main
     tags:
       - v*
   pull_request:
@@ -14,7 +14,7 @@ on:
     - doc/
     - README*
     branches:
-      - master
+      - main
   workflow_dispatch: {}
 
 jobs:
