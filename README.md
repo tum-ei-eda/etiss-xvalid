@@ -48,6 +48,40 @@ successful traced memory reads as type-3 entries after the underlying ETISS `dre
 read buffer. Both plugins accept `plugin.data_*_tracer.logaddr`/`addr` and
 `plugin.data_*_tracer.logmask`/`mask` options.
 
+## Tracing with bare_etiss_processor
+
+`bare_etiss_processor` does not call the XValid tracers directly. It loads them as normal ETISS
+plugins from the ini file or command line, then `CPUCore::execute()` applies their
+`SystemWrapperPlugin` hooks to the active `ETISS_System`.
+
+The data tracers wrap the simulator memory callbacks:
+
+- `DataWriteTracer` replaces `ETISS_System::dwrite`, records the PC, address, size, and write
+  bytes while tracing is active, then forwards the write to the original memory system.
+- `DataReadTracer` replaces `ETISS_System::dread`, forwards the read to the original memory
+  system first, then records the PC, address, size, and returned bytes if the read succeeded.
+
+`GTS`/`InstructionTracer` controls the trace window. It reads `pcs.tmp`, activates
+`TraceFileWriter` when execution enters the selected PC range, emits type-1 CPU state snapshots,
+and deactivates tracing at the matching return point. The data read/write tracers only emit
+records while that writer is active, so load/store events in `trace.bin` are aligned with the
+same function-level trace window.
+
+Typical command-line loading looks like this:
+
+```sh
+bare_etiss_processor \
+  -i path/to/program.ini \
+  -p GTS DataWriteTracer DataReadTracer \
+  --plugin.data_write_tracer.logaddr=0x0 \
+  --plugin.data_write_tracer.logmask=0x0 \
+  --plugin.data_read_tracer.logaddr=0x0 \
+  --plugin.data_read_tracer.logmask=0x0
+```
+
+With address and mask set to zero, all reads or writes are traced while `GTS` has tracing active.
+Use non-zero address/mask pairs to restrict tracing to a memory window, for example an MMIO region.
+
 ## Python validation pipeline
 
 The validation pipeline is available as the root-level `py_etiss_xvalid` package:
