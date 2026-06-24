@@ -60,6 +60,7 @@ jobs:
         cmake -S etiss -B etiss-build -G Ninja \
           -D CMAKE_BUILD_TYPE=Release \
           -D CMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/etiss-install" \
+          -D Boost_NO_BOOST_CMAKE=ON \
           -D CMAKE_C_COMPILER_LAUNCHER=ccache \
           -D CMAKE_CXX_COMPILER_LAUNCHER=ccache
       env:
@@ -123,6 +124,7 @@ jobs:
       run: |
         cmake -S etiss-xvalid -B xvalid-build -G Ninja \
           -D CMAKE_BUILD_TYPE=Release \
+          -D Boost_NO_BOOST_CMAKE=ON \
           -D ETISS_DIR="${GITHUB_WORKSPACE}/etiss-install/lib/CMake/ETISS" \
           -D CMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/xvalid-install"
 
