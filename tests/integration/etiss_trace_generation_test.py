@@ -32,6 +32,31 @@ sample_out:
     .word 0
 """
 
+SMOKE_INI = """
+[StringConfigurations]
+etiss_wd={work_dir}
+vp.elf_file={elf_path}
+arch.cpu=RV32IMACFD
+jit.type=TCCJIT
+
+[BoolConfigurations]
+etiss.exit_on_loop=true
+arch.enable_semihosting=true
+etiss.load_integrated_libraries=true
+jit.gcc.cleanup=true
+jit.verify=false
+vp.quiet=true
+
+[IntConfigurations]
+etiss.loglevel=2
+etiss.max_block_size=100
+arch.cpu_cycle_time_ps=31250
+simple_mem_system.memseg_origin_00=0x00000000
+simple_mem_system.memseg_length_00=0x00080000
+simple_mem_system.memseg_origin_01=0x00080000
+simple_mem_system.memseg_length_01=0x00080000
+"""
+
 
 @unittest.skipUnless(
     os.environ.get("ETISS_XVALID_RUN_INTEGRATION") == "1",
@@ -57,6 +82,7 @@ class TestEtissTraceGeneration(unittest.TestCase):
 
             asm_path = work_dir / "trace_smoke.S"
             elf_path = work_dir / "trace_smoke.elf"
+            ini_path = work_dir / "trace_smoke.ini"
             trace_path = work_dir / "trace.bin"
             asm_path.write_text(SMOKE_ASM)
             (work_dir / "pcs.tmp").write_text("0;128\n")
@@ -79,6 +105,7 @@ class TestEtissTraceGeneration(unittest.TestCase):
                 check=True,
                 cwd=work_dir,
             )
+            ini_path.write_text(SMOKE_INI.format(work_dir=work_dir, elf_path=elf_path))
 
             env = os.environ.copy()
             env["LD_LIBRARY_PATH"] = ":".join(
@@ -93,26 +120,18 @@ class TestEtissTraceGeneration(unittest.TestCase):
             result = subprocess.run(
                 [
                     str(bare_etiss),
-                    f"--vp.elf_file={elf_path}",
-                    "--arch.cpu=RV32IMACFD",
-                    "--jit.type=TCCJIT",
-                    "--etiss.exit_on_loop=true",
-                    "--vp.quiet=true",
-                    f"--etiss_wd={work_dir}",
+                    f"-i{ini_path}",
                     "-p",
                     "GTS",
                     "DataWriteTracer",
                     "DataReadTracer",
-                    "--plugin.data_write_tracer.logaddr=0x1000",
-                    "--plugin.data_write_tracer.logmask=0xfffffff0",
-                    "--plugin.data_read_tracer.logaddr=0x1000",
-                    "--plugin.data_read_tracer.logmask=0xfffffff0",
                 ],
                 cwd=work_dir,
                 env=env,
                 text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
+                timeout=5,
             )
             self.assertEqual(result.returncode, 0, result.stdout)
             self.assertTrue(trace_path.exists(), result.stdout)
