@@ -22,7 +22,7 @@ jobs:
     strategy:
       matrix:
         os:
-          - {name: "ubuntu", version: "latest"}
+          - {name: "ubuntu", version: "24.04"}
           - {name: "ubuntu", version: "22.04"}
 
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
@@ -86,7 +86,7 @@ jobs:
     strategy:
       matrix:
         os:
-          - {name: "ubuntu", version: "latest"}
+          - {name: "ubuntu", version: "24.04"}
           - {name: "ubuntu", version: "22.04"}
 
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
@@ -149,7 +149,7 @@ jobs:
     strategy:
       matrix:
         os:
-          - {name: "ubuntu", version: "latest"}
+          - {name: "ubuntu", version: "24.04"}
           - {name: "ubuntu", version: "22.04"}
 
     runs-on: ${{ matrix.os.name }}-${{ matrix.os.version }}
