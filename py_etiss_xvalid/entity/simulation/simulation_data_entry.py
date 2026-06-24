@@ -25,7 +25,7 @@ class SimulationDataEntry:
         This entity holds the information for one function call.
         The information includes
           - CPU state snapshots from prologue instructions
-          - dwrites done during function execution
+          - dreads and dwrites done during function execution
           - CPU state snapshots from epilogue instructions
         TODO:
             This entry class is already RV32 specific. In future
@@ -37,6 +37,7 @@ class SimulationDataEntry:
         self.invoke_chain: list = []
         self.prologue: List[Dict[str, Any]] = []
         self.epilogue: List[Dict[str, Any]] = []
+        self.dreads: Dict[str, List[Dict[str, Any]]] = {}
         self.dwrites: Dict[str, List[Dict[str, Any]]] = {}
         self.formal_param_locations: Dict[str, Any] = {}
         self.global_variable_locations: Dict[str, Any] = {}
@@ -109,6 +110,19 @@ class SimulationDataEntry:
             self.dwrites[location] = []
 
         self.dwrites[location].append({
+            'idx': self.index,
+            'pc': pc,
+            'data': data,
+            'location': location,
+            'byte_size': byte_size,
+        })
+        self.index += 1
+
+    def append_dread_instruction(self, pc, location, data, byte_size) -> None:
+        if location not in self.dreads:
+            self.dreads[location] = []
+
+        self.dreads[location].append({
             'idx': self.index,
             'pc': pc,
             'data': data,

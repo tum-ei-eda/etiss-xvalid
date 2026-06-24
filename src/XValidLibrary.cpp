@@ -5,6 +5,7 @@
 // see the LICENSE file.
 #define ETISS_LIBNAME XValid
 
+#include "etiss/xvalid/DataReadTracer.h"
 #include "etiss/xvalid/DataWriteTracer.h"
 #include "etiss/xvalid/ISAExtensionValidator.h"
 #include "etiss/xvalid/InstructionTracer.h"
@@ -33,7 +34,7 @@ extern "C"
 
     ETISS_PLUGIN_EXPORT unsigned XValid_countPlugin()
     {
-        return 3;
+        return 4;
     }
 
     ETISS_PLUGIN_EXPORT const char *XValid_namePlugin(unsigned index)
@@ -46,6 +47,8 @@ extern "C"
             return "GTS";
         case 2:
             return "DataWriteTracer";
+        case 3:
+            return "DataReadTracer";
         default:
             return nullptr;
         }
@@ -68,6 +71,16 @@ extern "C"
                 readUintOption(options, "plugin.data_write_tracer.logmask",
                                readUintOption(options, "plugin.data_write_tracer.mask", 0));
             return new etiss::plugin::DataWriteTracer(addr, mask);
+        }
+        case 3:
+        {
+            const uint64_t addr =
+                readUintOption(options, "plugin.data_read_tracer.logaddr",
+                               readUintOption(options, "plugin.data_read_tracer.addr", 0));
+            const uint64_t mask =
+                readUintOption(options, "plugin.data_read_tracer.logmask",
+                               readUintOption(options, "plugin.data_read_tracer.mask", 0));
+            return new etiss::plugin::DataReadTracer(addr, mask);
         }
         default:
             return nullptr;

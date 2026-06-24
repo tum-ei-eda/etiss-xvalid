@@ -72,6 +72,15 @@ void TraceFileWriter::writeDWrite(const DWriteEntry &entry)
     outfile_.write(reinterpret_cast<const char *>(&entry), sizeof(entry));
 }
 
+void TraceFileWriter::writeDRead(const DReadEntry &entry)
+{
+    if (!trace_active_)
+        return;
+
+    std::lock_guard<std::mutex> lock(mutex_);
+    outfile_.write(reinterpret_cast<const char *>(&entry), sizeof(entry));
+}
+
 void TraceFileWriter::activateTrace()
 {
     etiss::log(etiss::INFO, "TraceFileWriter: trace activated.");

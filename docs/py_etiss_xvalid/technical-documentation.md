@@ -10,7 +10,7 @@ The trace-based verification is based on the comparison of traces from a "golden
 
 The pipeline executes the following stages:
 1. selected DWARF debug information is extraced from both binaries
-2. ETISS simulation is executed on both binaries. During simulation, traces of CPU snapshots and data writes are collected. Traces are stored to disk.
+2. ETISS simulation is executed on both binaries. During simulation, traces of CPU snapshots, data writes, and optional data reads are collected. Traces are stored to disk.
 3. Using DWARF debug information as a bridge the trace outputs are then compared to detect any anomalies
 4. Finally, the pipeline outputs a log both into the console output and into a file.
 
@@ -33,7 +33,6 @@ The DWARF data types are built using type composition. The implementation of the
 
 ![DWARF types](img/type-dataclasses.jpg)
 
-The extracted traces are used to create simulation data entries. A new entry is formed for each invoked function. Each `SimulationDataEntry` references the `DwarfInfo` instance and additionally `MArchManager`, which provides information on the specific machine architecture. As of now the only supported machine architecture is `RV32IC`. It acts as a parent class for `RI32IMAC` and `RV32IMACFD` that override methods or implement abstract methods defined in `RV32IC` to comply with how these functionalities should behave in the given architecture based on the RISC-V ABI (Application Binary Interface). These methods are then used to verify the extracted traces from return values and data writes to global variables.   
+The extracted traces are used to create simulation data entries. A new entry is formed for each invoked function. Each `SimulationDataEntry` references the `DwarfInfo` instance and additionally `MArchManager`, which provides information on the specific machine architecture. As of now the only supported machine architecture is `RV32IC`. It acts as a parent class for `RI32IMAC` and `RV32IMACFD` that override methods or implement abstract methods defined in `RV32IC` to comply with how these functionalities should behave in the given architecture based on the RISC-V ABI (Application Binary Interface). These methods are then used to verify the extracted traces from return values and data writes to global variables; data reads are preserved for future transaction-level checks.   
 
 ![Simulation entries and machine architecture](img/simulation-data.jpg)
-

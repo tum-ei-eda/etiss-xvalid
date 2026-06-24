@@ -13,6 +13,8 @@ find_package(ETISS REQUIRED)
 if(NOT COMMAND ETISSPlugin)
     if(ETISS_DIR AND EXISTS "${ETISS_DIR}/../cmake/ETISSPlugin.cmake")
         include("${ETISS_DIR}/../cmake/ETISSPlugin.cmake")
+    elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../etiss/cmake/ETISSPlugin.cmake")
+        include("${CMAKE_CURRENT_SOURCE_DIR}/../etiss/cmake/ETISSPlugin.cmake")
     else()
         message(FATAL_ERROR "ETISSPlugin.cmake was not provided by ETISSConfig.cmake. "
                             "Install ETISS or point ETISS_DIR at an ETISS build tree.")
@@ -32,8 +34,25 @@ if(ETISS_DIR AND EXISTS "${ETISS_DIR}/../include/etiss/Plugin.h")
     )
     link_directories("${ETISS_DIR}/lib")
 endif()
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../etiss/include/etiss/Plugin.h")
+    list(APPEND XVALID_ETISS_EXTRA_INCLUDE_DIRS
+        "${CMAKE_CURRENT_SOURCE_DIR}/../etiss/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../etiss/include_c"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../etiss/include_c/etiss/jit"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../etiss/third_party/betterenums"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../etiss/third_party/simpleini"
+    )
+endif()
+if(ETISS_DIR AND EXISTS "${ETISS_DIR}/include/etiss/config.h")
+    list(APPEND XVALID_ETISS_EXTRA_INCLUDE_DIRS
+        "${ETISS_DIR}/include"
+        "${ETISS_DIR}/include/jit"
+    )
+    link_directories("${ETISS_DIR}/lib")
+endif()
 
 add_library(${PROJECT_NAME} SHARED
+    src/DataReadTracer.cpp
     src/DataWriteTracer.cpp
     src/ISAExtensionValidator.cpp
     src/InstructionTracer.cpp

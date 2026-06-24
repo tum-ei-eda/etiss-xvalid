@@ -200,6 +200,13 @@ def construct_entries_recursively(data_iter: Peekable, dwarf_info: DwarfInfo, en
                     e['data'],
                     e['byte_size']
                 )
+            case 'dread':
+                entry.append_dread_instruction(
+                    e['pc'],
+                    e['location'],
+                    e['data'],
+                    e['byte_size']
+                )
         if epilogue_reached:
             break
 

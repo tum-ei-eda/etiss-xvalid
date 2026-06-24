@@ -38,9 +38,15 @@ The library provides these ETISS plugin names:
 - `ISAExtensionValidator`
 - `GTS`
 - `DataWriteTracer`
+- `DataReadTracer`
 
 `GTS` expects the validation pipeline to provide `pcs.tmp` in the ETISS working directory and
 writes binary trace data to `trace.bin`.
+
+`DataWriteTracer` records traced memory writes as type-2 entries. `DataReadTracer` records
+successful traced memory reads as type-3 entries after the underlying ETISS `dread` fills the
+read buffer. Both plugins accept `plugin.data_*_tracer.logaddr`/`addr` and
+`plugin.data_*_tracer.logmask`/`mask` options.
 
 ## Python validation pipeline
 

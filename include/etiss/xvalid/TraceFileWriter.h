@@ -40,6 +40,19 @@ struct DWriteEntry
 
 static_assert(sizeof(DWriteEntry) == 84, "DWriteEntry size must be 84 bytes");
 
+#pragma pack(push, 1)
+struct DReadEntry
+{
+    uint32_t type;
+    uint32_t pc;
+    uint64_t addr;
+    uint32_t length;
+    uint8_t data[64];
+};
+#pragma pack(pop)
+
+static_assert(sizeof(DReadEntry) == 84, "DReadEntry size must be 84 bytes");
+
 class TraceFileWriter
 {
   public:
@@ -47,6 +60,7 @@ class TraceFileWriter
 
     void writeStateSnapshot(const StateSnapshotEntry &entry);
     void writeDWrite(const DWriteEntry &entry);
+    void writeDRead(const DReadEntry &entry);
 
     void activateTrace();
     void deactivateTrace();
