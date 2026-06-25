@@ -55,12 +55,11 @@ add_library(${PROJECT_NAME} SHARED
     src/DataReadTracer.cpp
     src/DataWriteTracer.cpp
     src/ISAExtensionValidator.cpp
-    src/InstructionTracer.cpp
     src/TraceFileWriter.cpp
     src/XValidLibrary.cpp
 )
 
-target_include_directories(${PROJECT_NAME}
+target_include_directories(${PROJECT_NAME} BEFORE
     PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
         "$<INSTALL_INTERFACE:include>"
@@ -68,6 +67,7 @@ target_include_directories(${PROJECT_NAME}
         ${ETISS_INCLUDE_DIRS}
         ${XVALID_ETISS_EXTRA_INCLUDE_DIRS}
 )
+target_include_directories(${PROJECT_NAME} BEFORE PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 foreach(etiss_include_dir ${ETISS_INCLUDE_DIRS})
     if(IS_DIRECTORY "${etiss_include_dir}/jit")

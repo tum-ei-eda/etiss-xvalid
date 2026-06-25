@@ -8,7 +8,6 @@
 #include "etiss/xvalid/DataReadTracer.h"
 #include "etiss/xvalid/DataWriteTracer.h"
 #include "etiss/xvalid/ISAExtensionValidator.h"
-#include "etiss/xvalid/InstructionTracer.h"
 
 #include "etiss/ETISS.h"
 #include "etiss/LibraryInterface.h"
@@ -26,6 +25,29 @@ uint64_t readUintOption(const std::map<std::string, std::string> &options, const
 
     return std::stoull(iter->second, nullptr, 0);
 }
+
+uint64_t readUintConfig(const std::map<std::string, std::string> &options, const std::string &key, uint64_t fallback)
+{
+    return etiss::cfg().get<uint64_t>(key, readUintOption(options, key, fallback));
+}
+
+std::string readStringOption(const std::map<std::string, std::string> &options, const std::string &key,
+                             const std::string &fallback)
+{
+    auto iter = options.find(key);
+    if (iter == options.end())
+    {
+        return fallback;
+    }
+
+    return iter->second;
+}
+
+std::string readStringConfig(const std::map<std::string, std::string> &options, const std::string &key,
+                             const std::string &fallback)
+{
+    return etiss::cfg().get<std::string>(key, readStringOption(options, key, fallback));
+}
 }
 
 extern "C"
@@ -34,7 +56,7 @@ extern "C"
 
     ETISS_PLUGIN_EXPORT unsigned XValid_countPlugin()
     {
-        return 4;
+        return 3;
     }
 
     ETISS_PLUGIN_EXPORT const char *XValid_namePlugin(unsigned index)
@@ -44,10 +66,8 @@ extern "C"
         case 0:
             return "ISAExtensionValidator";
         case 1:
-            return "GTS";
-        case 2:
             return "DataWriteTracer";
-        case 3:
+        case 2:
             return "DataReadTracer";
         default:
             return nullptr;
@@ -59,27 +79,23 @@ extern "C"
         switch (index)
         {
         case 0:
-            return new etiss::plugin::ISAExtensionValidator();
-        case 1:
-            return new InstructionTracer();
-        case 2:
         {
-            const uint64_t addr =
-                readUintOption(options, "plugin.data_write_tracer.logaddr",
-                               readUintOption(options, "plugin.data_write_tracer.addr", 0));
-            const uint64_t mask =
-                readUintOption(options, "plugin.data_write_tracer.logmask",
-                               readUintOption(options, "plugin.data_write_tracer.mask", 0));
+            const std::string instructions = readStringConfig(options, "plugin.xvalid.itrace_instructions", "*");
+            const std::string pcRange = readStringConfig(options, "plugin.xvalid.itrace_pc_ranges", "");
+            const std::string pcRangePath =
+                readStringConfig(options, "plugin.xvalid.itrace_pc_ranges_fpath", "pcs.tmp");
+            return new etiss::plugin::ISAExtensionValidator(instructions, pcRange, pcRangePath);
+        }
+        case 1:
+        {
+            const uint64_t addr = readUintConfig(options, "plugin.xvalid.dwrite_trace.logaddr", 0);
+            const uint64_t mask = readUintConfig(options, "plugin.xvalid.dwrite_trace.logmask", 0);
             return new etiss::plugin::DataWriteTracer(addr, mask);
         }
-        case 3:
+        case 2:
         {
-            const uint64_t addr =
-                readUintOption(options, "plugin.data_read_tracer.logaddr",
-                               readUintOption(options, "plugin.data_read_tracer.addr", 0));
-            const uint64_t mask =
-                readUintOption(options, "plugin.data_read_tracer.logmask",
-                               readUintOption(options, "plugin.data_read_tracer.mask", 0));
+            const uint64_t addr = readUintConfig(options, "plugin.xvalid.dread_trace.logaddr", 0);
+            const uint64_t mask = readUintConfig(options, "plugin.xvalid.dread_trace.logmask", 0);
             return new etiss::plugin::DataReadTracer(addr, mask);
         }
         default:

@@ -10,6 +10,12 @@
 
 #include "etiss/Plugin.h"
 
+#include <cstdint>
+#include <string>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+
 namespace etiss
 {
 namespace plugin
@@ -18,12 +24,23 @@ namespace plugin
 class ISAExtensionValidator : public etiss::TranslationPlugin
 {
   public:
+    explicit ISAExtensionValidator(std::string instruction_filter = "*", std::string pc_range = "",
+                                   std::string pc_range_path = "pcs.tmp");
+    void collectState(ETISS_CPU *cpu, const char *instruction);
     void initInstrSet(etiss::instr::ModedInstructionSet &) const override;
     void finalizeInstrSet(etiss::instr::ModedInstructionSet &) const override;
     void initCodeBlock(etiss::CodeBlock &) const override;
     void finalizeCodeBlock(etiss::CodeBlock &) const override;
     void *getPluginHandle() override;
     std::string _getPluginName() const override;
+
+  private:
+    std::unordered_set<std::string> instructions_with_callback_;
+    std::vector<std::pair<std::uint32_t, std::uint32_t>> pc_ranges_;
+    bool trace_all_instructions_ = false;
+
+    bool shouldInstrumentInstruction(const std::string &instruction) const;
+    bool isPcInRange(std::uint32_t pc) const;
 };
 
 } // namespace plugin
