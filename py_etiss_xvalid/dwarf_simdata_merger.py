@@ -23,7 +23,7 @@ from py_etiss_xvalid.util.peekable_iter import Peekable
 logger = logging.getLogger(__name__)
 INDENT = '    '
 
-def build_simulation_entries(dwarf_info: DwarfInfo):
+def build_simulation_entries(dwarf_info: DwarfInfo, trace_path: str | None = None):
     """
     Builds a collection of verifiable simulation data entries by parsing
     the ETISS activity log and integrating DWARF debugging information
@@ -38,6 +38,8 @@ def build_simulation_entries(dwarf_info: DwarfInfo):
     Args:
         dwarf_info (DwarfInfo): Parsed DWARF debugging information used
         to enrich simulation entries with symbolic context.
+        trace_path (str | None): Optional trace file path. Defaults to
+        trace.bin in the current working directory for the legacy pipeline.
 
     Returns:
         SimulationDataCollection: A collection of SimulationDataEntry
@@ -46,7 +48,7 @@ def build_simulation_entries(dwarf_info: DwarfInfo):
 
     logger.debug("Extracting snapshots from activity log")
 
-    realpath = f"{os.getcwd()}/trace.bin"
+    realpath = trace_path or f"{os.getcwd()}/trace.bin"
     data = parse_trace_file(realpath)
     data_iter = Peekable(data)
 
