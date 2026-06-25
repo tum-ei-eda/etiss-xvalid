@@ -7,9 +7,9 @@
 // Original author: Heidi Holappa <73523507+heidi-holappa@users.noreply.github.com>
 #include "etiss/xvalid/ISAExtensionValidator.h"
 
-#include "Arch/RV32IMACFD/RV32IMACFD.h"
 #include "etiss/CPUArch.h"
 #include "etiss/Instruction.h"
+#include "etiss/xvalid/CpuArchConfig.h"
 
 #include <iostream>
 #include <sstream>
@@ -51,7 +51,8 @@ void ISAExtensionValidator::finalizeInstrSet(etiss::instr::ModedInstructionSet &
                                 {
                                     std::stringstream ss;
                                     ss << "// ISAExtensionValidation: collect state information\n";
-                                    ss << "ISAExtensionValidation_collect_state((RV32IMACFD*) cpu);\n";
+                                    ss << "ISAExtensionValidation_collect_state(("
+                                       << XVALID_STRINGIFY(XVALID_CPU_TYPE) << "*) cpu);\n";
                                     cs.append(etiss::CodePart::PREINITIALDEBUGRETURNING).code() = ss.str();
                                     return true;
                                 },
@@ -64,7 +65,8 @@ void ISAExtensionValidator::finalizeInstrSet(etiss::instr::ModedInstructionSet &
 void ISAExtensionValidator::initCodeBlock(etiss::CodeBlock &block) const
 {
     std::cout << "ISAExtensionValidator::initCodeBlock" << std::endl;
-    block.fileglobalCode().insert("extern void ISAExtensionValidation_collect_state(RV32IMACFD*);");
+    block.fileglobalCode().insert("extern void ISAExtensionValidation_collect_state(" XVALID_STRINGIFY(
+        XVALID_CPU_TYPE) "*);");
 }
 
 void ISAExtensionValidator::finalizeCodeBlock(etiss::CodeBlock &) const
@@ -84,7 +86,7 @@ std::string ISAExtensionValidator::_getPluginName() const
 
 extern "C"
 {
-    void ISAExtensionValidation_collect_state(RV32IMACFD *cpu)
+    void ISAExtensionValidation_collect_state(XVALID_CPU_TYPE *cpu)
     {
         const etiss_uint32 pc = static_cast<etiss_uint32>(reinterpret_cast<ETISS_CPU *>(cpu)->instructionPointer);
 

@@ -7,10 +7,10 @@
 // Original author: Heidi Holappa <73523507+heidi-holappa@users.noreply.github.com>
 #include "etiss/xvalid/InstructionTracer.h"
 
-#include "Arch/RV32IMACFD/RV32IMACFD.h"
 #include "etiss/CPUArch.h"
 #include "etiss/ETISS.h"
 #include "etiss/Instruction.h"
+#include "etiss/xvalid/CpuArchConfig.h"
 #include "etiss/xvalid/TraceFileWriter.h"
 
 #include <cstring>
@@ -94,8 +94,8 @@ void InstructionTracer::finalizeInstrSet(etiss::instr::ModedInstructionSet &mis)
                                 {
                                     std::stringstream ss;
                                     ss << "// InstructionTracer: collect state information\n";
-                                    ss << "InstructionTracer_collect_state((RV32IMACFD*) cpu, \"" << instr.name_
-                                       << "\");\n";
+                                    ss << "InstructionTracer_collect_state((" << XVALID_STRINGIFY(XVALID_CPU_TYPE)
+                                       << "*) cpu, \"" << instr.name_ << "\");\n";
                                     cs.append(etiss::CodePart::PREINITIALDEBUGRETURNING).code() = ss.str();
                                     return true;
                                 },
@@ -107,12 +107,13 @@ void InstructionTracer::finalizeInstrSet(etiss::instr::ModedInstructionSet &mis)
 
 void InstructionTracer::initCodeBlock(etiss::CodeBlock &block) const
 {
-    block.fileglobalCode().insert("extern void InstructionTracer_collect_state(RV32IMACFD*, const char*);");
+    block.fileglobalCode().insert("extern void InstructionTracer_collect_state(" XVALID_STRINGIFY(
+        XVALID_CPU_TYPE) "*, const char*);");
 }
 
 extern "C"
 {
-    void InstructionTracer_collect_state(RV32IMACFD *cpu, const char *instruction)
+    void InstructionTracer_collect_state(XVALID_CPU_TYPE *cpu, const char *instruction)
     {
         const etiss_uint32 pc = static_cast<etiss_uint32>(reinterpret_cast<ETISS_CPU *>(cpu)->instructionPointer);
         auto &writer = TraceFileWriter::instance();

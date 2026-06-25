@@ -7,6 +7,9 @@ cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
 
 project(XValid LANGUAGES CXX)
 
+set(XVALID_ETISS_ARCH "RV32IMACFD" CACHE STRING "ETISS CPU struct/architecture name used by XValid JIT callbacks")
+set(XVALID_ETISS_ARCH_INCLUDE_DIR "" CACHE PATH "Optional include dir containing Arch/<arch>/<arch>.h")
+
 set(Boost_NO_BOOST_CMAKE ON CACHE BOOL "Use CMake's FindBoost module for ETISS dependencies")
 find_package(ETISS REQUIRED)
 
@@ -67,6 +70,16 @@ target_include_directories(${PROJECT_NAME}
     PRIVATE
         ${ETISS_INCLUDE_DIRS}
         ${XVALID_ETISS_EXTRA_INCLUDE_DIRS}
+)
+
+if(XVALID_ETISS_ARCH_INCLUDE_DIR)
+    target_include_directories(${PROJECT_NAME} PRIVATE "${XVALID_ETISS_ARCH_INCLUDE_DIR}")
+endif()
+
+target_compile_definitions(${PROJECT_NAME}
+    PRIVATE
+        XVALID_CPU_TYPE=${XVALID_ETISS_ARCH}
+        "XVALID_CPU_HEADER=\"Arch/${XVALID_ETISS_ARCH}/${XVALID_ETISS_ARCH}.h\""
 )
 
 foreach(etiss_include_dir ${ETISS_INCLUDE_DIRS})
