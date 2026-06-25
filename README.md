@@ -36,29 +36,26 @@ The plugin library is installed as `lib/plugins/libXValid.so` and registered in 
 The library provides these ETISS plugin names:
 
 - `ISAExtensionValidator`
-- `GTS`
 - `DataWriteTracer`
 - `DataReadTracer`
 
-`ISAExtensionValidator` injects state-dump callbacks at selected instruction mnemonics. By default
-it instruments `cjr` for backwards compatibility. Use
-`plugin.isa_extension_validator.instructions=name[,name...]` to select instruction types, or
-`plugin.isa_extension_validator.instructions=*` to instrument every decoded instruction. Optional
-`plugin.isa_extension_validator.pc_range=low:high[,low:high...]` or
-`plugin.isa_extension_validator.pc_range_path=path/to/pcs.tmp` filters collected states by program
-counter. Numeric bounds may be decimal or `0x`-prefixed hexadecimal.
+`ISAExtensionValidator` provides the trace window and state snapshot functionality. It writes binary trace data to
+`trace.bin`, activates
+`TraceFileWriter` inside the selected PC range, and emits type-1 CPU state snapshots at selected
+instruction mnemonics. By default it instruments every decoded instruction. Use
+`plugin.xvalid.itrace_instructions=name[,name...]` to select instruction types, or
+`plugin.xvalid.itrace_instructions=*` to keep all instructions enabled.
 
-`GTS` expects the validation pipeline to provide one or more PC ranges and writes binary trace data
-to `trace.bin`. By default it reads `pcs.tmp` from the ETISS working directory; pass
-`plugin.instruction_tracer.pc_range_path` to use an explicit path. For ad-hoc runs, pass
-`plugin.instruction_tracer.pc_range` directly as `low:high[,low:high...]`. Numeric bounds may be
-decimal or `0x`-prefixed hexadecimal, for example
-`plugin.instruction_tracer.pc_range=0x10000000:0x10000334,0x10001000:0x10001080`.
+By default `ISAExtensionValidator` reads `pcs.tmp` from the ETISS working directory. Set
+`plugin.xvalid.itrace_pc_ranges_fpath` in the ETISS ini file to use an explicit path. For ad-hoc
+runs, set `plugin.xvalid.itrace_pc_ranges` directly as `low:high[,low:high...]`. Numeric bounds may
+be decimal or `0x`-prefixed hexadecimal, for example
+`plugin.xvalid.itrace_pc_ranges=0x10000000:0x10000334,0x10001000:0x10001080`.
 
 `DataWriteTracer` records traced memory writes as type-2 entries. `DataReadTracer` records
 successful traced memory reads as type-3 entries after the underlying ETISS `dread` fills the
-read buffer. Both plugins accept `plugin.data_*_tracer.logaddr`/`addr` and
-`plugin.data_*_tracer.logmask`/`mask` options.
+read buffer. The data tracers accept `plugin.xvalid.dwrite_trace.logaddr`/`logmask` and
+`plugin.xvalid.dread_trace.logaddr`/`logmask` options.
 
 ## Tracing with bare_etiss_processor
 
@@ -73,28 +70,33 @@ The data tracers wrap the simulator memory callbacks:
 - `DataReadTracer` replaces `ETISS_System::dread`, forwards the read to the original memory
   system first, then records the PC, address, size, and returned bytes if the read succeeded.
 
-`GTS`/`InstructionTracer` controls the trace window. It reads the configured PC range file,
-activates
-`TraceFileWriter` when execution enters the selected PC range, emits type-1 CPU state snapshots,
-and deactivates tracing at the matching return point. The data read/write tracers only emit
-records while that writer is active, so load/store events in `trace.bin` are aligned with the
-same function-level trace window.
+`ISAExtensionValidator` controls the trace window. It reads the configured PC range file or direct
+range option, activates `TraceFileWriter` when execution enters the selected PC range, and emits
+type-1 CPU state snapshots. The data read/write tracers only emit records while that writer is
+active, so load/store events in `trace.bin` are aligned with the same function-level trace window.
 
-Typical command-line loading looks like this:
+Typical ini configuration looks like this:
+
+```ini
+[StringConfigurations]
+plugin.xvalid.itrace_pc_ranges=0x10000000:0x10000334
+plugin.xvalid.dwrite_trace.logaddr=0x0
+plugin.xvalid.dwrite_trace.logmask=0x0
+plugin.xvalid.dread_trace.logaddr=0x0
+plugin.xvalid.dread_trace.logmask=0x0
+```
+
+Load the plugins with `bare_etiss_processor`:
 
 ```sh
 bare_etiss_processor \
   -i path/to/program.ini \
-  -p GTS DataWriteTracer DataReadTracer \
-  --plugin.instruction_tracer.pc_range=0x10000000:0x10000334 \
-  --plugin.data_write_tracer.logaddr=0x0 \
-  --plugin.data_write_tracer.logmask=0x0 \
-  --plugin.data_read_tracer.logaddr=0x0 \
-  --plugin.data_read_tracer.logmask=0x0
+  -p ISAExtensionValidator DataWriteTracer DataReadTracer
 ```
 
-With address and mask set to zero, all reads or writes are traced while `GTS` has tracing active.
-Use non-zero address/mask pairs to restrict tracing to a memory window, for example an MMIO region.
+With address and mask set to zero, all reads or writes are traced while `ISAExtensionValidator`
+has tracing active. Use non-zero address/mask pairs to restrict tracing to a memory window, for
+example an MMIO region.
 
 ## Python validation pipeline
 

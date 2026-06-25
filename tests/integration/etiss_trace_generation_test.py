@@ -79,13 +79,22 @@ class TestEtissTraceGeneration(unittest.TestCase):
         with tempfile.TemporaryDirectory() as test_dir:
             work_dir, ini_path, trace_path = self._prepare_smoke_program(Path(test_dir))
             (work_dir / "pcs.tmp").write_text("0;128\n")
+            self._append_string_config(
+                ini_path,
+                {
+                    "plugin.xvalid.dwrite_trace.logaddr": "0x0",
+                    "plugin.xvalid.dwrite_trace.logmask": "0x0",
+                    "plugin.xvalid.dread_trace.logaddr": "0x0",
+                    "plugin.xvalid.dread_trace.logmask": "0x0",
+                },
+            )
 
             result = self._run_bare_etiss(
                 work_dir,
                 [
                     f"-i{ini_path}",
                     "-p",
-                    "GTS",
+                    "ISAExtensionValidator",
                     "DataWriteTracer",
                     "DataReadTracer",
                 ],
@@ -107,19 +116,24 @@ class TestEtissTraceGeneration(unittest.TestCase):
             entries,
         )
 
-    def test_instruction_tracer_accepts_direct_pc_range_option(self):
+    def test_isa_extension_validator_accepts_direct_pc_range_config(self):
         with tempfile.TemporaryDirectory() as test_dir:
             work_dir, ini_path, trace_path = self._prepare_smoke_program(Path(test_dir))
+            self._append_string_config(
+                ini_path,
+                {
+                    "plugin.xvalid.itrace_pc_ranges": "0x0:0x80,0x200:0x210",
+                },
+            )
 
             result = self._run_bare_etiss(
                 work_dir,
                 [
                     f"-i{ini_path}",
                     "-p",
-                    "GTS",
+                    "ISAExtensionValidator",
                     "DataWriteTracer",
                     "DataReadTracer",
-                    "--plugin.instruction_tracer.pc_range=0x0:0x80,0x200:0x210",
                 ],
             )
             self.assertEqual(result.returncode, 0, result.stdout)
@@ -134,7 +148,14 @@ class TestEtissTraceGeneration(unittest.TestCase):
 
     def test_isa_extension_validator_accepts_instruction_and_pc_filters(self):
         with tempfile.TemporaryDirectory() as test_dir:
-            work_dir, ini_path, _ = self._prepare_smoke_program(Path(test_dir))
+            work_dir, ini_path, trace_path = self._prepare_smoke_program(Path(test_dir))
+            self._append_string_config(
+                ini_path,
+                {
+                    "plugin.xvalid.itrace_instructions": "cjr,cswsp",
+                    "plugin.xvalid.itrace_pc_ranges": "0x0:0x10",
+                },
+            )
 
             result = self._run_bare_etiss(
                 work_dir,
@@ -142,14 +163,15 @@ class TestEtissTraceGeneration(unittest.TestCase):
                     f"-i{ini_path}",
                     "-p",
                     "ISAExtensionValidator",
-                    "--plugin.isa_extension_validator.instructions=cjr,cswsp",
-                    "--plugin.isa_extension_validator.pc_range=0x0:0x10",
                 ],
             )
+            self.assertEqual(result.returncode, 0, result.stdout)
+            self.assertTrue(trace_path.exists(), result.stdout)
+            entries = parse_trace_file(trace_path)
 
-        self.assertEqual(result.returncode, 0, result.stdout)
-        self.assertIn("X[PC]: 4", result.stdout)
-        self.assertNotIn("X[PC]: 22", result.stdout)
+        state_pcs = [entry["pc"] for entry in entries if entry["type"] == "state_snapshot"]
+        self.assertIn(4, state_pcs)
+        self.assertNotIn(22, state_pcs)
 
     def _prepare_smoke_program(self, work_dir):
         plugin_dir = work_dir / "PluginImpl"
@@ -183,6 +205,12 @@ class TestEtissTraceGeneration(unittest.TestCase):
         ini_path.write_text(SMOKE_INI.format(work_dir=work_dir, elf_path=elf_path))
         return work_dir, ini_path, trace_path
 
+    def _append_string_config(self, ini_path, values):
+        with ini_path.open("a", encoding="utf-8") as ini_file:
+            ini_file.write("\n[StringConfigurations]\n")
+            for key, value in values.items():
+                ini_file.write(f"{key}={value}\n")
+
     def _run_bare_etiss(self, work_dir, args):
         env = os.environ.copy()
         env["LD_LIBRARY_PATH"] = ":".join(
@@ -201,14 +229,4 @@ class TestEtissTraceGeneration(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             timeout=5,
-        )
-        self.assertTrue(
-            any(
-                entry["type"] == "dwrite"
-                and entry["location"] == "00001004"
-                and entry["byte_size"] == 4
-                and entry["data"] == "44332211"
-                for entry in entries
-            ),
-            entries,
         )

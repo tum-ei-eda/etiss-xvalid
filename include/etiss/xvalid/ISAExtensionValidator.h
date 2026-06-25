@@ -24,9 +24,9 @@ namespace plugin
 class ISAExtensionValidator : public etiss::TranslationPlugin
 {
   public:
-    explicit ISAExtensionValidator(std::string instruction_filter = "cjr", std::string pc_range = "",
-                                   std::string pc_range_path = "");
-    void collectState(ETISS_CPU *cpu);
+    explicit ISAExtensionValidator(std::string instruction_filter = "*", std::string pc_range = "",
+                                   std::string pc_range_path = "pcs.tmp");
+    void collectState(ETISS_CPU *cpu, const char *instruction);
     void initInstrSet(etiss::instr::ModedInstructionSet &) const override;
     void finalizeInstrSet(etiss::instr::ModedInstructionSet &) const override;
     void initCodeBlock(etiss::CodeBlock &) const override;
@@ -40,7 +40,7 @@ class ISAExtensionValidator : public etiss::TranslationPlugin
     bool trace_all_instructions_ = false;
 
     bool shouldInstrumentInstruction(const std::string &instruction) const;
-    bool shouldCollectPc(std::uint32_t pc) const;
+    bool isPcInRange(std::uint32_t pc) const;
 };
 
 } // namespace plugin

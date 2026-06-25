@@ -55,7 +55,6 @@ add_library(${PROJECT_NAME} SHARED
     src/DataReadTracer.cpp
     src/DataWriteTracer.cpp
     src/ISAExtensionValidator.cpp
-    src/InstructionTracer.cpp
     src/TraceFileWriter.cpp
     src/XValidLibrary.cpp
 )

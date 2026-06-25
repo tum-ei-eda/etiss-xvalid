@@ -35,7 +35,7 @@ def run_etiss_simulation(etiss_path: str, bare_metal_etiss: str, ini_file: str, 
         cmd = [
             etiss_path,
             f"-i{ini_file}",
-            "-p", "GTS",
+            "-p", "ISAExtensionValidator",
             # An example of providing CPU arhcitecture as an argument
             # "--arch.cpu=RV32IMACFDXCoreVXMNN",
             "--jit.gcc.cleanup", "true"
@@ -47,7 +47,7 @@ def run_etiss_simulation(etiss_path: str, bare_metal_etiss: str, ini_file: str, 
         cmd = [
             etiss_path,
             f"-i{ini_file}",
-            "-p", "GTS",
+            "-p", "ISAExtensionValidator",
             "--jit.gcc.cleanup", "true"
         ]
 

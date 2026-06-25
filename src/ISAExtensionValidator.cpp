@@ -9,11 +9,13 @@
 
 #include "etiss/CPUArch.h"
 #include "etiss/CPUCore.h"
+#include "etiss/ETISS.h"
 #include "etiss/Instruction.h"
 #include "etiss/VirtualStruct.h"
+#include "etiss/xvalid/TraceFileWriter.h"
 
+#include <cstring>
 #include <fstream>
-#include <iostream>
 #include <sstream>
 #include <string>
 #include <unordered_set>
@@ -32,21 +34,6 @@ etiss_uint64 readFieldOrZero(const std::shared_ptr<etiss::VirtualStruct> &state,
         return 0;
     }
     return field->read();
-}
-
-std::vector<std::string> indexedFields(const std::shared_ptr<etiss::VirtualStruct> &state, const std::string &prefix)
-{
-    std::vector<std::string> names;
-    for (int i = 0;; ++i)
-    {
-        const std::string name = prefix + std::to_string(i);
-        if (!state || !state->findName(name))
-        {
-            break;
-        }
-        names.push_back(name);
-    }
-    return names;
 }
 
 std::string trim(std::string value)
@@ -92,7 +79,7 @@ void appendPcRange(std::vector<std::pair<std::uint32_t, std::uint32_t>> &pc_rang
 ISAExtensionValidator::ISAExtensionValidator(std::string instruction_filter, std::string pc_range,
                                              std::string pc_range_path)
 {
-    std::stringstream instructions(instruction_filter.empty() ? "cjr" : instruction_filter);
+    std::stringstream instructions(instruction_filter.empty() ? "*" : instruction_filter);
     std::string instruction;
     while (std::getline(instructions, instruction, ','))
     {
@@ -141,12 +128,10 @@ ISAExtensionValidator::ISAExtensionValidator(std::string instruction_filter, std
 
 void ISAExtensionValidator::initInstrSet(etiss::instr::ModedInstructionSet &) const
 {
-    std::cout << "ISAExtensionValidator::initInstrSet" << std::endl;
 }
 
 void ISAExtensionValidator::finalizeInstrSet(etiss::instr::ModedInstructionSet &mis) const
 {
-    std::cout << "ISAExtensionValidator::finalizeInstrSet" << std::endl;
     mis.foreach (
         [this](etiss::instr::VariableInstructionSet &vis)
         {
@@ -161,13 +146,15 @@ void ISAExtensionValidator::finalizeInstrSet(etiss::instr::ModedInstructionSet &
                                 return;
                             }
 
+                            const auto instruction_name = instr.name_;
                             instr.addCallback(
-                                [this](etiss::instr::BitArray &, etiss::CodeSet &cs,
-                                   etiss::instr::InstructionContext &)
+                                [this, instruction_name](etiss::instr::BitArray &, etiss::CodeSet &cs,
+                                                         etiss::instr::InstructionContext &)
                                 {
                                     std::stringstream ss;
                                     ss << "// ISAExtensionValidation: collect state information\n";
-                                    ss << "ISAExtensionValidation_collect_state(" << getPointerCode() << ", cpu);\n";
+                                    ss << "ISAExtensionValidation_collect_state(" << getPointerCode() << ", cpu, \""
+                                       << instruction_name << "\");\n";
                                     cs.append(etiss::CodePart::PREINITIALDEBUGRETURNING).code() = ss.str();
                                     return true;
                                 },
@@ -179,13 +166,11 @@ void ISAExtensionValidator::finalizeInstrSet(etiss::instr::ModedInstructionSet &
 
 void ISAExtensionValidator::initCodeBlock(etiss::CodeBlock &block) const
 {
-    std::cout << "ISAExtensionValidator::initCodeBlock" << std::endl;
-    block.fileglobalCode().insert("extern void ISAExtensionValidation_collect_state(void*, ETISS_CPU*);");
+    block.fileglobalCode().insert("extern void ISAExtensionValidation_collect_state(void*, ETISS_CPU*, const char*);");
 }
 
 void ISAExtensionValidator::finalizeCodeBlock(etiss::CodeBlock &) const
 {
-    std::cout << "ISAExtensionValidator::finalizeCodeBlock" << std::endl;
 }
 
 void *ISAExtensionValidator::getPluginHandle()
@@ -203,7 +188,7 @@ bool ISAExtensionValidator::shouldInstrumentInstruction(const std::string &instr
     return trace_all_instructions_ || instructions_with_callback_.find(instruction) != instructions_with_callback_.end();
 }
 
-bool ISAExtensionValidator::shouldCollectPc(std::uint32_t pc) const
+bool ISAExtensionValidator::isPcInRange(std::uint32_t pc) const
 {
     if (pc_ranges_.empty())
     {
@@ -222,35 +207,42 @@ bool ISAExtensionValidator::shouldCollectPc(std::uint32_t pc) const
 
 extern "C"
 {
-    void ISAExtensionValidation_collect_state(void *plugin, ETISS_CPU *cpu)
+    void ISAExtensionValidation_collect_state(void *plugin, ETISS_CPU *cpu, const char *instruction)
     {
-        static_cast<ISAExtensionValidator *>(plugin)->collectState(cpu);
+        static_cast<ISAExtensionValidator *>(plugin)->collectState(cpu, instruction);
     }
 }
 
-void ISAExtensionValidator::collectState(ETISS_CPU *)
+void ISAExtensionValidator::collectState(ETISS_CPU *, const char *instruction)
 {
     const auto state = plugin_core_ ? plugin_core_->getStruct() : std::shared_ptr<etiss::VirtualStruct>{};
     const etiss_uint32 pc = static_cast<etiss_uint32>(readFieldOrZero(state, "instructionPointer"));
-    if (!shouldCollectPc(pc))
+    auto &writer = TraceFileWriter::instance();
+    const bool pc_in_range = isPcInRange(pc);
+
+    if (!writer.isTracing() && pc_in_range)
     {
-        return;
+        writer.activateTrace();
+    }
+    else if (writer.isTracing() && !pc_in_range)
+    {
+        writer.deactivateTrace();
     }
 
-    const auto xNames = indexedFields(state, "X");
-    const auto fNames = indexedFields(state, "F");
-
-    printf("X[%s]: %u\n", "PC", pc);
-
-    for (std::size_t i = 0; i < xNames.size(); ++i)
+    if (writer.isTracing())
     {
-        printf("%s: %u", xNames[i].c_str(), static_cast<etiss_uint32>(readFieldOrZero(state, xNames[i])));
-        printf("%s", i + 1 == xNames.size() ? "\n" : ", ");
-    }
+        StateSnapshotEntry entry{};
+        entry.type = 1;
+        entry.pc = pc;
+        entry.sp = static_cast<etiss_uint32>(readFieldOrZero(state, "X2"));
+        std::strncpy(entry.instruction, instruction, sizeof(entry.instruction) - 1);
 
-    for (std::size_t i = 0; i < fNames.size(); ++i)
-    {
-        printf("%s: %lu", fNames[i].c_str(), readFieldOrZero(state, fNames[i]));
-        printf("%s", i + 1 == fNames.size() ? "\n" : ", ");
+        for (int i = 0; i < 32; ++i)
+            entry.x[i] = static_cast<etiss_uint32>(readFieldOrZero(state, "X" + std::to_string(i)));
+
+        for (int i = 0; i < 32; ++i)
+            entry.f[i] = readFieldOrZero(state, "F" + std::to_string(i));
+
+        writer.writeStateSnapshot(entry);
     }
 }
