@@ -47,6 +47,9 @@ examples/SW/arm
 **/venv
 **/__pycache__/
 **/.pytest_cache/
+**/*.egg-info/
+**/build/
+**/dist/
 **/.idea
 **/*.log
 **/tmp
