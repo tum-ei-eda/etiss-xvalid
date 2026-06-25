@@ -18,6 +18,7 @@ namespace plugin
 class ISAExtensionValidator : public etiss::TranslationPlugin
 {
   public:
+    void collectState(ETISS_CPU *cpu);
     void initInstrSet(etiss::instr::ModedInstructionSet &) const override;
     void finalizeInstrSet(etiss::instr::ModedInstructionSet &) const override;
     void initCodeBlock(etiss::CodeBlock &) const override;

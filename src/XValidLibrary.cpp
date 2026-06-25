@@ -26,6 +26,24 @@ uint64_t readUintOption(const std::map<std::string, std::string> &options, const
 
     return std::stoull(iter->second, nullptr, 0);
 }
+
+std::string readStringOption(const std::map<std::string, std::string> &options, const std::string &key,
+                             const std::string &fallback)
+{
+    auto iter = options.find(key);
+    if (iter == options.end())
+    {
+        return fallback;
+    }
+
+    return iter->second;
+}
+
+std::string readStringConfig(const std::map<std::string, std::string> &options, const std::string &key,
+                             const std::string &fallback)
+{
+    return etiss::cfg().get<std::string>(key, readStringOption(options, key, fallback));
+}
 }
 
 extern "C"
@@ -61,7 +79,15 @@ extern "C"
         case 0:
             return new etiss::plugin::ISAExtensionValidator();
         case 1:
-            return new InstructionTracer();
+        {
+            const std::string pcRange =
+                readStringConfig(options, "plugin.instruction_tracer.pc_range",
+                                 readStringConfig(options, "plugin.gts.pc_range", ""));
+            const std::string pcRangePath =
+                readStringConfig(options, "plugin.instruction_tracer.pc_range_path",
+                                 readStringConfig(options, "plugin.gts.pc_range_path", "pcs.tmp"));
+            return new InstructionTracer(pcRange, pcRangePath);
+        }
         case 2:
         {
             const uint64_t addr =

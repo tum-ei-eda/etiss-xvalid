@@ -40,8 +40,12 @@ The library provides these ETISS plugin names:
 - `DataWriteTracer`
 - `DataReadTracer`
 
-`GTS` expects the validation pipeline to provide `pcs.tmp` in the ETISS working directory and
-writes binary trace data to `trace.bin`.
+`GTS` expects the validation pipeline to provide one or more PC ranges and writes binary trace data
+to `trace.bin`. By default it reads `pcs.tmp` from the ETISS working directory; pass
+`plugin.instruction_tracer.pc_range_path` to use an explicit path. For ad-hoc runs, pass
+`plugin.instruction_tracer.pc_range` directly as `low:high[,low:high...]`. Numeric bounds may be
+decimal or `0x`-prefixed hexadecimal, for example
+`plugin.instruction_tracer.pc_range=0x10000000:0x10000334,0x10001000:0x10001080`.
 
 `DataWriteTracer` records traced memory writes as type-2 entries. `DataReadTracer` records
 successful traced memory reads as type-3 entries after the underlying ETISS `dread` fills the
@@ -61,7 +65,8 @@ The data tracers wrap the simulator memory callbacks:
 - `DataReadTracer` replaces `ETISS_System::dread`, forwards the read to the original memory
   system first, then records the PC, address, size, and returned bytes if the read succeeded.
 
-`GTS`/`InstructionTracer` controls the trace window. It reads `pcs.tmp`, activates
+`GTS`/`InstructionTracer` controls the trace window. It reads the configured PC range file,
+activates
 `TraceFileWriter` when execution enters the selected PC range, emits type-1 CPU state snapshots,
 and deactivates tracing at the matching return point. The data read/write tracers only emit
 records while that writer is active, so load/store events in `trace.bin` are aligned with the
@@ -73,6 +78,7 @@ Typical command-line loading looks like this:
 bare_etiss_processor \
   -i path/to/program.ini \
   -p GTS DataWriteTracer DataReadTracer \
+  --plugin.instruction_tracer.pc_range=0x10000000:0x10000334 \
   --plugin.data_write_tracer.logaddr=0x0 \
   --plugin.data_write_tracer.logmask=0x0 \
   --plugin.data_read_tracer.logaddr=0x0 \

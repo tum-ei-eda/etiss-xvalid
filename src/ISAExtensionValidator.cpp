@@ -8,19 +8,46 @@
 #include "etiss/xvalid/ISAExtensionValidator.h"
 
 #include "etiss/CPUArch.h"
+#include "etiss/CPUCore.h"
 #include "etiss/Instruction.h"
-#include "etiss/xvalid/CpuArchConfig.h"
+#include "etiss/VirtualStruct.h"
 
 #include <iostream>
 #include <sstream>
 #include <string>
 #include <unordered_set>
+#include <vector>
 
 using namespace etiss::plugin;
 
 namespace
 {
 const std::unordered_set<std::string> instructionsWithCallback = { "cjr" };
+
+etiss_uint64 readFieldOrZero(const std::shared_ptr<etiss::VirtualStruct> &state, const std::string &name)
+{
+    auto field = state ? state->findName(name) : nullptr;
+    if (!field)
+    {
+        return 0;
+    }
+    return field->read();
+}
+
+std::vector<std::string> indexedFields(const std::shared_ptr<etiss::VirtualStruct> &state, const std::string &prefix)
+{
+    std::vector<std::string> names;
+    for (int i = 0;; ++i)
+    {
+        const std::string name = prefix + std::to_string(i);
+        if (!state || !state->findName(name))
+        {
+            break;
+        }
+        names.push_back(name);
+    }
+    return names;
+}
 }
 
 void ISAExtensionValidator::initInstrSet(etiss::instr::ModedInstructionSet &) const
@@ -32,13 +59,13 @@ void ISAExtensionValidator::finalizeInstrSet(etiss::instr::ModedInstructionSet &
 {
     std::cout << "ISAExtensionValidator::finalizeInstrSet" << std::endl;
     mis.foreach (
-        [](etiss::instr::VariableInstructionSet &vis)
+        [this](etiss::instr::VariableInstructionSet &vis)
         {
             vis.foreach (
-                [](etiss::instr::InstructionSet &set)
+                [this](etiss::instr::InstructionSet &set)
                 {
                     set.foreach (
-                        [](etiss::instr::Instruction &instr)
+                        [this](etiss::instr::Instruction &instr)
                         {
                             if (instructionsWithCallback.find(instr.name_) == instructionsWithCallback.end())
                             {
@@ -46,13 +73,12 @@ void ISAExtensionValidator::finalizeInstrSet(etiss::instr::ModedInstructionSet &
                             }
 
                             instr.addCallback(
-                                [](etiss::instr::BitArray &, etiss::CodeSet &cs,
+                                [this](etiss::instr::BitArray &, etiss::CodeSet &cs,
                                    etiss::instr::InstructionContext &)
                                 {
                                     std::stringstream ss;
                                     ss << "// ISAExtensionValidation: collect state information\n";
-                                    ss << "ISAExtensionValidation_collect_state(("
-                                       << XVALID_STRINGIFY(XVALID_CPU_TYPE) << "*) cpu);\n";
+                                    ss << "ISAExtensionValidation_collect_state(" << getPointerCode() << ", cpu);\n";
                                     cs.append(etiss::CodePart::PREINITIALDEBUGRETURNING).code() = ss.str();
                                     return true;
                                 },
@@ -65,8 +91,7 @@ void ISAExtensionValidator::finalizeInstrSet(etiss::instr::ModedInstructionSet &
 void ISAExtensionValidator::initCodeBlock(etiss::CodeBlock &block) const
 {
     std::cout << "ISAExtensionValidator::initCodeBlock" << std::endl;
-    block.fileglobalCode().insert("extern void ISAExtensionValidation_collect_state(" XVALID_STRINGIFY(
-        XVALID_CPU_TYPE) "*);");
+    block.fileglobalCode().insert("extern void ISAExtensionValidation_collect_state(void*, ETISS_CPU*);");
 }
 
 void ISAExtensionValidator::finalizeCodeBlock(etiss::CodeBlock &) const
@@ -76,7 +101,7 @@ void ISAExtensionValidator::finalizeCodeBlock(etiss::CodeBlock &) const
 
 void *ISAExtensionValidator::getPluginHandle()
 {
-    return nullptr;
+    return this;
 }
 
 std::string ISAExtensionValidator::_getPluginName() const
@@ -86,30 +111,30 @@ std::string ISAExtensionValidator::_getPluginName() const
 
 extern "C"
 {
-    void ISAExtensionValidation_collect_state(XVALID_CPU_TYPE *cpu)
+    void ISAExtensionValidation_collect_state(void *plugin, ETISS_CPU *cpu)
     {
-        const etiss_uint32 pc = static_cast<etiss_uint32>(reinterpret_cast<ETISS_CPU *>(cpu)->instructionPointer);
+        static_cast<ISAExtensionValidator *>(plugin)->collectState(cpu);
+    }
+}
 
-        etiss_uint32 x[32];
-        for (int i = 0; i < 32; ++i)
-            x[i] = *cpu->X[i];
+void ISAExtensionValidator::collectState(ETISS_CPU *)
+{
+    const auto state = plugin_core_ ? plugin_core_->getStruct() : std::shared_ptr<etiss::VirtualStruct>{};
+    const etiss_uint32 pc = static_cast<etiss_uint32>(readFieldOrZero(state, "instructionPointer"));
+    const auto xNames = indexedFields(state, "X");
+    const auto fNames = indexedFields(state, "F");
 
-        etiss_uint64 f[32];
-        for (int i = 0; i < 32; ++i)
-            f[i] = *cpu->F[i];
+    printf("X[%s]: %u\n", "PC", pc);
 
-        printf("X[%s]: %u\n", "PC", pc);
+    for (std::size_t i = 0; i < xNames.size(); ++i)
+    {
+        printf("%s: %u", xNames[i].c_str(), static_cast<etiss_uint32>(readFieldOrZero(state, xNames[i])));
+        printf("%s", i + 1 == xNames.size() ? "\n" : ", ");
+    }
 
-        for (int i = 0; i < 32; ++i)
-        {
-            printf("%c[%d]: %u", 'X', i, x[i]);
-            printf("%s", i == 31 ? "\n" : ", ");
-        }
-
-        for (int i = 0; i < 32; ++i)
-        {
-            printf("%c[%d]: %lu", 'F', i, f[i]);
-            printf("%s", i == 31 ? "\n" : ", ");
-        }
+    for (std::size_t i = 0; i < fNames.size(); ++i)
+    {
+        printf("%s: %lu", fNames[i].c_str(), readFieldOrZero(state, fNames[i]));
+        printf("%s", i + 1 == fNames.size() ? "\n" : ", ");
     }
 }
