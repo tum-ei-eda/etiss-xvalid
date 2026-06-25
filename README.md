@@ -40,6 +40,14 @@ The library provides these ETISS plugin names:
 - `DataWriteTracer`
 - `DataReadTracer`
 
+`ISAExtensionValidator` injects state-dump callbacks at selected instruction mnemonics. By default
+it instruments `cjr` for backwards compatibility. Use
+`plugin.isa_extension_validator.instructions=name[,name...]` to select instruction types, or
+`plugin.isa_extension_validator.instructions=*` to instrument every decoded instruction. Optional
+`plugin.isa_extension_validator.pc_range=low:high[,low:high...]` or
+`plugin.isa_extension_validator.pc_range_path=path/to/pcs.tmp` filters collected states by program
+counter. Numeric bounds may be decimal or `0x`-prefixed hexadecimal.
+
 `GTS` expects the validation pipeline to provide one or more PC ranges and writes binary trace data
 to `trace.bin`. By default it reads `pcs.tmp` from the ETISS working directory; pass
 `plugin.instruction_tracer.pc_range_path` to use an explicit path. For ad-hoc runs, pass

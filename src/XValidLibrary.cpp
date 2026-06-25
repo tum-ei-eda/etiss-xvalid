@@ -77,7 +77,15 @@ extern "C"
         switch (index)
         {
         case 0:
-            return new etiss::plugin::ISAExtensionValidator();
+        {
+            const std::string instructions =
+                readStringConfig(options, "plugin.isa_extension_validator.instructions", "cjr");
+            const std::string pcRange =
+                readStringConfig(options, "plugin.isa_extension_validator.pc_range", "");
+            const std::string pcRangePath =
+                readStringConfig(options, "plugin.isa_extension_validator.pc_range_path", "");
+            return new etiss::plugin::ISAExtensionValidator(instructions, pcRange, pcRangePath);
+        }
         case 1:
         {
             const std::string pcRange =
